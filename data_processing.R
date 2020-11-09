@@ -8,9 +8,18 @@ obs <- obs[1:5852,] #file imported with empty rows from original unfiltered data
 obs <- janitor::clean_names(obs)
 
 obs$observation_date<-as.Date(obs$observation_date, format = "%d/%m/%Y")
-obs$observation_count <- as.integer(obs$observation_count)
+obs$observation_count[obs$observation_count == "X"] <- "0.5"
+obs$observation_count <- as.numeric(obs$observation_count)
 obs$site <- as.factor(obs$site)
 obs$timeline <- as.factor(obs$timeline)
+
+obs$effort_distance_km[obs$protocol_type == "Stationary" ] <- 0
+obs$effort_distance_km[obs$protocol_type == "CWC Point Count" | obs$protocol_type == "CWC Area Search"] <- 0
+obs$effort_distance_km[obs$protocol_type == "Incidental" | obs$protocol_type == "Historical"] <- 0
+
+obs$duration_minutes[obs$protocol_type == "Incidental" | obs$protocol_type == "Historical"] <- 0
+
+obs$number_observers <- replace_na(obs$number_observers, 0)
 
 total_richness <- n_distinct(obs$common_name)
 
@@ -29,6 +38,8 @@ summary <- obs %>% group_by(site) %>%
 
 obs_filtered <- obs %>% 
   filter(duration_minutes <= 5*60, effort_distance_km <= 5, number_observers <= 10)
+#replaced NA distance and duration values, new n post-filter is 4800 vs 3669 when NA values filtered out
+#replaced NA observer counts values, new n 5088 obs
 
 summary_postfilter <- obs_filtered %>% group_by(site) %>%
   summarize(richness = n_distinct(common_name), checklists = n_distinct(time_observations_started), 
