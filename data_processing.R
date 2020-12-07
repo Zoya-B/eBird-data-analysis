@@ -2,12 +2,15 @@ library(auk)
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
+library(lubridate)
 
 obs <- read.csv("Obs_complete.csv", header = TRUE, sep = ",")
 obs <- obs[1:5852,] #file imported with empty rows from original unfiltered dataset
 obs <- janitor::clean_names(obs)
 
-obs$observation_date<-as.Date(obs$observation_date, format = "%d/%m/%Y")
+obs <- mutate(obs, checklist_dt = str_c(observation_date, time_observations_started, sep = " "))
+obs$checklist_dt <- dmy_hms(obs$checklist_dt)
+obs$observation_date <- dmy(obs$observation_date)
 obs$observation_count[obs$observation_count == "X"] <- "0.5"
 obs$observation_count <- as.numeric(obs$observation_count)
 obs$site <- as.factor(obs$site)
@@ -24,13 +27,12 @@ obs$number_observers <- replace_na(obs$number_observers, 0)
 total_richness <- n_distinct(obs$common_name)
 
 summary <- obs %>% group_by(site) %>%
-  summarize(richness = n_distinct(common_name), checklists = n_distinct(time_observations_started), 
+  summarize(richness = n_distinct(common_name), checklists = n_distinct(checklist_dt), 
             avg_observers = round(mean(number_observers, na.rm = TRUE)), 
             max_observers = max(number_observers, na.rm = TRUE),
             avg_distance = mean(effort_distance_km, na.rm = TRUE),
             max_distance = max(effort_distance_km, na.rm = TRUE), 
             avg_duration = mean(duration_minutes, na.rm = TRUE), 
-            min_length = min(duration_minutes, na.rm = TRUE), 
             max_length = max(duration_minutes, na.rm = TRUE))
 
 #to account for variability in detectability (https://cornelllabofornithology.github.io/ebird-best-practices/ebird.html#ebird-detect)
@@ -42,28 +44,12 @@ obs_filtered <- obs %>%
 #replaced NA observer counts values, new n 5088 obs
 
 summary_postfilter <- obs_filtered %>% group_by(site) %>%
-  summarize(richness = n_distinct(common_name), checklists = n_distinct(time_observations_started), 
+  summarize(richness = n_distinct(common_name), checklists = n_distinct(checklist_dt), 
             avg_observers = round(mean(number_observers, na.rm = TRUE)), 
             max_observers = max(number_observers, na.rm = TRUE),
             avg_distance = mean(effort_distance_km, na.rm = TRUE),
             max_distance = max(effort_distance_km, na.rm = TRUE), 
             avg_duration = mean(duration_minutes, na.rm = TRUE), 
-            min_length = min(duration_minutes, na.rm = TRUE), 
             max_length = max(duration_minutes, na.rm = TRUE))
 
-
-lev_obs <- filter(obs_filtered, site %in% "LEV")
-lev_obs %>% group_by(timeline) %>%
-  summarize(checklists = n_distinct(time_observations_started), 
-            richness = n_distinct(common_name), proportion = richness/70)
-
-lsg_obs <- filter(obs_filtered, site %in% "LSG")
-lsg_obs %>% group_by(timeline) %>%
-  summarize(checklists = n_distinct(time_observations_started), 
-            richness = n_distinct(common_name), proportion = richness/79)
-
-mth_obs <- filter(obs_filtered, site %in% "MTH")
-mth_obs %>% group_by(timeline) %>%
-  summarize(checklists = n_distinct(time_observations_started), 
-            richness = n_distinct(common_name), proportion = richness/59)
             
